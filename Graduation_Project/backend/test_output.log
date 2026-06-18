@@ -1,0 +1,827 @@
+[dotenv@17.3.1] injecting env (17) from .env -- tip: 🛡️ auth for agents: https://vestauth.com
+✅ [Environment] All required environment variables validated successfully.
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[DB] Initializing PostgreSQL connection: postgres@localhost:5432/medical_imaging_db
+[DB] Using DB user: postgres
+[Sequelize] Executing (default): SELECT 1+1 AS result
+[Sequelize] Executing (default): SELECT 1+1 AS result
+[DB] Connection established successfully.
+[Sequelize] Executing (default): SELECT current_database() AS database, current_schema() AS schema, current_user AS user
+[DB] Connected to postgres@medical_imaging_db, schema public
+[Sequelize] Executing (default): BEGIN;
+
+    -- 1. Users table
+    CREATE TABLE IF NOT EXISTS "Users" (
+      "id" SERIAL PRIMARY KEY,
+      "email" VARCHAR(255) NOT NULL UNIQUE,
+      "password" VARCHAR(255) NOT NULL,
+      "phone" VARCHAR(40),
+      "role" VARCHAR(255) NOT NULL DEFAULT 'PATIENT',
+      "is_verified" BOOLEAN NOT NULL DEFAULT false,
+      "verification_status" VARCHAR(30) NOT NULL DEFAULT 'pending',
+      "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+      "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    );
+
+    ALTER TABLE "Users" ALTER COLUMN "role" DROP DEFAULT;
+    ALTER TABLE "Users" ALTER COLUMN "role" TYPE VARCHAR(20) USING UPPER("role"::text);
+    ALTER TABLE "Users" ALTER COLUMN "role" SET DEFAULT 'PATIENT';
+    ALTER TABLE "Users" DROP CONSTRAINT IF EXISTS users_role_check;
+    UPDATE "Users" SET "role" = UPPER("role");
+
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_role_check') THEN
+        ALTER TABLE "Users" ADD CONSTRAINT users_role_check CHECK (role IN ('PATIENT', 'DOCTOR', 'ADMIN'));
+      END IF;
+    END $$;
+
+    -- 2. Add user_id column if not exists
+    ALTER TABLE IF EXISTS "Patients" ADD COLUMN IF NOT EXISTS "user_id" INTEGER;
+    ALTER TABLE IF EXISTS "Doctors" ADD COLUMN IF NOT EXISTS "user_id" INTEGER;
+
+    -- 3. Populate Users
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'Patients' AND column_name = 'email'
+      ) THEN
+        INSERT INTO "Users" ("email", "password", "phone", "role", "is_verified", "verification_status")
+        SELECT "email", "password", "phone", 'PATIENT', "is_verified", "verification_status"
+        FROM "Patients"
+        ON CONFLICT ("email") DO NOTHING;
+
+        UPDATE "Patients" p
+        SET "user_id" = u.id
+        FROM "Users" u
+        WHERE p.email = u.email AND p.user_id IS NULL;
+      END IF;
+
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'Doctors' AND column_name = 'email'
+      ) THEN
+        INSERT INTO "Users" ("email", "password", "phone", "role", "is_verified", "verification_status")
+        SELECT "email", "password", "phone", 'DOCTOR', "is_verified", "verification_status"
+        FROM "Doctors"
+        ON CONFLICT ("email") DO NOTHING;
+
+        UPDATE "Doctors" d
+        SET "user_id" = u.id
+        FROM "Users" u
+        WHERE d.email = u.email AND d.user_id IS NULL;
+      END IF;
+    END $$;
+
+    -- 5. Drop referencing constraints
+    ALTER TABLE IF EXISTS "Chat_Threads" DROP CONSTRAINT IF EXISTS "Chat_Threads_patient_id_fkey";
+    ALTER TABLE IF EXISTS "Diagnosis_Reports" DROP CONSTRAINT IF EXISTS "Diagnosis_Reports_patient_id_fkey";
+    ALTER TABLE IF EXISTS "Xray_Images" DROP CONSTRAINT IF EXISTS "Xray_Images_patient_id_fkey";
+
+    ALTER TABLE IF EXISTS "Chat_Threads" DROP CONSTRAINT IF EXISTS "Chat_Threads_doctor_id_fkey";
+    ALTER TABLE IF EXISTS "Diagnosis_Reports" DROP CONSTRAINT IF EXISTS "Diagnosis_Reports_doctor_id_fkey";
+    ALTER TABLE IF EXISTS "Xray_Images" DROP CONSTRAINT IF EXISTS "Xray_Images_doctor_id_fkey";
+
+    -- 6. Modify Patients primary key
+    DO $$
+    BEGIN
+      IF to_regclass('"Patients"') IS NOT NULL THEN
+        IF NOT EXISTS (SELECT 1 FROM "Patients" WHERE "user_id" IS NULL) THEN
+          ALTER TABLE "Patients" DROP CONSTRAINT IF EXISTS "Patients_pkey";
+          ALTER TABLE "Patients" DROP CONSTRAINT IF EXISTS "patients_pkey";
+          ALTER TABLE "Patients" DROP COLUMN IF EXISTS "id";
+          ALTER TABLE "Patients" ALTER COLUMN "user_id" SET NOT NULL;
+          ALTER TABLE "Patients" ADD CONSTRAINT "Patients_pkey" PRIMARY KEY ("user_id");
+        END IF;
+      END IF;
+    END $$;
+
+    -- 7. Modify Doctors primary key
+    DO $$
+    BEGIN
+      IF to_regclass('"Doctors"') IS NOT NULL THEN
+        IF NOT EXISTS (SELECT 1 FROM "Doctors" WHERE "user_id" IS NULL) THEN
+          ALTER TABLE "Doctors" DROP CONSTRAINT IF EXISTS "Doctors_pkey";
+          ALTER TABLE "Doctors" DROP CONSTRAINT IF EXISTS "doctors_pkey";
+          ALTER TABLE "Doctors" DROP COLUMN IF EXISTS "id";
+          ALTER TABLE "Doctors" ALTER COLUMN "user_id" SET NOT NULL;
+          ALTER TABLE "Doctors" ADD CONSTRAINT "Doctors_pkey" PRIMARY KEY ("user_id");
+        END IF;
+      END IF;
+    END $$;
+
+    -- 8. Add user_id foreign keys to Users
+    ALTER TABLE IF EXISTS "Patients" DROP CONSTRAINT IF EXISTS "patients_user_id_users_id_fk";
+    ALTER TABLE IF EXISTS "Patients" ADD CONSTRAINT "patients_user_id_users_id_fk" FOREIGN KEY (user_id) REFERENCES "Users"(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+    ALTER TABLE IF EXISTS "Doctors" DROP CONSTRAINT IF EXISTS "doctors_user_id_users_id_fk";
+    ALTER TABLE IF EXISTS "Doctors" ADD CONSTRAINT "doctors_user_id_users_id_fk" FOREIGN KEY (user_id) REFERENCES "Users"(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+    -- 9. Recreate referencing constraints
+    ALTER TABLE IF EXISTS "Chat_Threads" ADD CONSTRAINT "Chat_Threads_patient_id_fkey" FOREIGN KEY (patient_id) REFERENCES "Patients"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;
+    ALTER TABLE IF EXISTS "Diagnosis_Reports" ADD CONSTRAINT "Diagnosis_Reports_patient_id_fkey" FOREIGN KEY (patient_id) REFERENCES "Patients"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;
+    ALTER TABLE IF EXISTS "Xray_Images" ADD CONSTRAINT "Xray_Images_patient_id_fkey" FOREIGN KEY (patient_id) REFERENCES "Patients"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+    ALTER TABLE IF EXISTS "Chat_Threads" ADD CONSTRAINT "Chat_Threads_doctor_id_fkey" FOREIGN KEY (doctor_id) REFERENCES "Doctors"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;
+    ALTER TABLE IF EXISTS "Diagnosis_Reports" ADD CONSTRAINT "Diagnosis_Reports_doctor_id_fkey" FOREIGN KEY (doctor_id) REFERENCES "Doctors"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;
+    ALTER TABLE IF EXISTS "Xray_Images" ADD CONSTRAINT "Xray_Images_doctor_id_fkey" FOREIGN KEY (doctor_id) REFERENCES "Doctors"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+    -- 10. Drop duplicate columns
+    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "email";
+    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "password";
+    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "role";
+    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "phone";
+    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "is_verified";
+    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "verification_status";
+
+    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "email";
+    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "password";
+    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "role";
+    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "phone";
+    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "is_verified";
+    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "verification_status";
+
+    -- 11. Add approval_status to Doctors
+    ALTER TABLE IF EXISTS "Doctors" ADD COLUMN IF NOT EXISTS "approval_status" VARCHAR(20) NOT NULL DEFAULT 'PENDING';
+    DO $$
+    BEGIN
+      IF to_regclass('"Doctors"') IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'doctors_approval_status_check') THEN
+        ALTER TABLE "Doctors" ADD CONSTRAINT doctors_approval_status_check CHECK (approval_status IN ('PENDING', 'APPROVED', 'REJECTED'));
+      END IF;
+    END $$;
+
+    -- 12. Contacts table
+    CREATE TABLE IF NOT EXISTS "Contacts" (
+      "id" SERIAL PRIMARY KEY,
+      "doctor_id" INTEGER NOT NULL REFERENCES "Doctors"("user_id") ON UPDATE CASCADE ON DELETE CASCADE,
+      "patient_id" INTEGER NOT NULL REFERENCES "Patients"("user_id") ON UPDATE CASCADE ON DELETE CASCADE,
+      "status" VARCHAR(30) NOT NULL DEFAULT 'PENDING_VERIFICATION',
+      "otp_code" VARCHAR(10),
+      "otp_expires_at" TIMESTAMP WITH TIME ZONE,
+      "otp_used" BOOLEAN DEFAULT false,
+      "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+      "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+      UNIQUE ("doctor_id", "patient_id")
+    );
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'contacts_status_check') THEN
+        ALTER TABLE "Contacts" ADD CONSTRAINT contacts_status_check CHECK (status IN ('PENDING_VERIFICATION', 'ACTIVE'));
+      END IF;
+    END $$;
+
+    -- Ensure OTP columns exist if table was already created
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contacts' AND column_name = 'otp_code') THEN
+        ALTER TABLE "Contacts" ADD COLUMN "otp_code" VARCHAR(10);
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contacts' AND column_name = 'otp_expires_at') THEN
+        ALTER TABLE "Contacts" ADD COLUMN "otp_expires_at" TIMESTAMP WITH TIME ZONE;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contacts' AND column_name = 'otp_used') THEN
+        ALTER TABLE "Contacts" ADD COLUMN "otp_used" BOOLEAN DEFAULT false;
+      END IF;
+    END $$;
+
+    -- Add language to Users
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Users' AND column_name = 'language') THEN
+        ALTER TABLE "Users" ADD COLUMN "language" VARCHAR(10) DEFAULT 'en';
+      END IF;
+    END $$;
+
+    COMMIT;
+❌ [Database] Connection failed during bootstrap: Error
+    at Query.run (E:\Downloads\final Chest-X_ray-diagnosis-system-Backend-Ziad (1)\Chest-X_ray-diagnosis-system-Backend-Ziad\backend\node_modules\sequelize\lib\dialects\postgres\query.js:50:25)
+    at E:\Downloads\final Chest-X_ray-diagnosis-system-Backend-Ziad (1)\Chest-X_ray-diagnosis-system-Backend-Ziad\backend\node_modules\sequelize\lib\sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async ensureDatabaseSchema (E:\Downloads\final Chest-X_ray-diagnosis-system-Backend-Ziad (1)\Chest-X_ray-diagnosis-system-Backend-Ziad\backend\src\server.js:33:3)
+    at async start (E:\Downloads\final Chest-X_ray-diagnosis-system-Backend-Ziad (1)\Chest-X_ray-diagnosis-system-Backend-Ziad\backend\src\server.js:244:5) {
+  name: 'SequelizeDatabaseError',
+  parent: error: cannot drop constraint Patients_pkey on table "Patients" because other objects depend on it
+      at parseErrorMessage (E:\Downloads\final Chest-X_ray-diagnosis-system-Backend-Ziad (1)\Chest-X_ray-diagnosis-system-Backend-Ziad\backend\node_modules\pg-protocol\dist\parser.js:305:11)
+      at Parser.handlePacket (E:\Downloads\final Chest-X_ray-diagnosis-system-Backend-Ziad (1)\Chest-X_ray-diagnosis-system-Backend-Ziad\backend\node_modules\pg-protocol\dist\parser.js:143:27)
+      at Parser.parse (E:\Downloads\final Chest-X_ray-diagnosis-system-Backend-Ziad (1)\Chest-X_ray-diagnosis-system-Backend-Ziad\backend\node_modules\pg-protocol\dist\parser.js:37:38)
+      at Socket.<anonymous> (E:\Downloads\final Chest-X_ray-diagnosis-system-Backend-Ziad (1)\Chest-X_ray-diagnosis-system-Backend-Ziad\backend\node_modules\pg-protocol\dist\index.js:11:42)
+      at Socket.emit (node:events:509:28)
+      at addChunk (node:internal/streams/readable:563:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+      at Readable.push (node:internal/streams/readable:394:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+    length: 452,
+    severity: 'ERROR',
+    code: '2BP01',
+    detail: 'constraint Contacts_patient_id_fkey on table "Contacts" depends on index "Patients_pkey"',
+    hint: 'Use DROP ... CASCADE to drop the dependent objects too.',
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: 'SQL statement "ALTER TABLE "Patients" DROP CONSTRAINT IF EXISTS "Patients_pkey""\n' +
+      'PL/pgSQL function inline_code_block line 5 at SQL statement',
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'dependency.c',
+    line: '1154',
+    routine: 'reportDependentObjects',
+    sql: 'BEGIN;\n' +
+      '\n' +
+      '    -- 1. Users table\n' +
+      '    CREATE TABLE IF NOT EXISTS "Users" (\n' +
+      '      "id" SERIAL PRIMARY KEY,\n' +
+      '      "email" VARCHAR(255) NOT NULL UNIQUE,\n' +
+      '      "password" VARCHAR(255) NOT NULL,\n' +
+      '      "phone" VARCHAR(40),\n' +
+      `      "role" VARCHAR(255) NOT NULL DEFAULT 'PATIENT',\n` +
+      '      "is_verified" BOOLEAN NOT NULL DEFAULT false,\n' +
+      `      "verification_status" VARCHAR(30) NOT NULL DEFAULT 'pending',\n` +
+      '      "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),\n' +
+      '      "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()\n' +
+      '    );\n' +
+      '\n' +
+      '    ALTER TABLE "Users" ALTER COLUMN "role" DROP DEFAULT;\n' +
+      '    ALTER TABLE "Users" ALTER COLUMN "role" TYPE VARCHAR(20) USING UPPER("role"::text);\n' +
+      `    ALTER TABLE "Users" ALTER COLUMN "role" SET DEFAULT 'PATIENT';\n` +
+      '    ALTER TABLE "Users" DROP CONSTRAINT IF EXISTS users_role_check;\n' +
+      '    UPDATE "Users" SET "role" = UPPER("role");\n' +
+      '\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      "      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_role_check') THEN\n" +
+      `        ALTER TABLE "Users" ADD CONSTRAINT users_role_check CHECK (role IN ('PATIENT', 'DOCTOR', 'ADMIN'));\n` +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- 2. Add user_id column if not exists\n' +
+      '    ALTER TABLE IF EXISTS "Patients" ADD COLUMN IF NOT EXISTS "user_id" INTEGER;\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" ADD COLUMN IF NOT EXISTS "user_id" INTEGER;\n' +
+      '\n' +
+      '    -- 3. Populate Users\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      '      IF EXISTS (\n' +
+      '        SELECT 1 FROM information_schema.columns\n' +
+      "        WHERE table_name = 'Patients' AND column_name = 'email'\n" +
+      '      ) THEN\n' +
+      '        INSERT INTO "Users" ("email", "password", "phone", "role", "is_verified", "verification_status")\n' +
+      `        SELECT "email", "password", "phone", 'PATIENT', "is_verified", "verification_status"\n` +
+      '        FROM "Patients"\n' +
+      '        ON CONFLICT ("email") DO NOTHING;\n' +
+      '\n' +
+      '        UPDATE "Patients" p\n' +
+      '        SET "user_id" = u.id\n' +
+      '        FROM "Users" u\n' +
+      '        WHERE p.email = u.email AND p.user_id IS NULL;\n' +
+      '      END IF;\n' +
+      '\n' +
+      '      IF EXISTS (\n' +
+      '        SELECT 1 FROM information_schema.columns\n' +
+      "        WHERE table_name = 'Doctors' AND column_name = 'email'\n" +
+      '      ) THEN\n' +
+      '        INSERT INTO "Users" ("email", "password", "phone", "role", "is_verified", "verification_status")\n' +
+      `        SELECT "email", "password", "phone", 'DOCTOR', "is_verified", "verification_status"\n` +
+      '        FROM "Doctors"\n' +
+      '        ON CONFLICT ("email") DO NOTHING;\n' +
+      '\n' +
+      '        UPDATE "Doctors" d\n' +
+      '        SET "user_id" = u.id\n' +
+      '        FROM "Users" u\n' +
+      '        WHERE d.email = u.email AND d.user_id IS NULL;\n' +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- 5. Drop referencing constraints\n' +
+      '    ALTER TABLE IF EXISTS "Chat_Threads" DROP CONSTRAINT IF EXISTS "Chat_Threads_patient_id_fkey";\n' +
+      '    ALTER TABLE IF EXISTS "Diagnosis_Reports" DROP CONSTRAINT IF EXISTS "Diagnosis_Reports_patient_id_fkey";\n' +
+      '    ALTER TABLE IF EXISTS "Xray_Images" DROP CONSTRAINT IF EXISTS "Xray_Images_patient_id_fkey";\n' +
+      '\n' +
+      '    ALTER TABLE IF EXISTS "Chat_Threads" DROP CONSTRAINT IF EXISTS "Chat_Threads_doctor_id_fkey";\n' +
+      '    ALTER TABLE IF EXISTS "Diagnosis_Reports" DROP CONSTRAINT IF EXISTS "Diagnosis_Reports_doctor_id_fkey";\n' +
+      '    ALTER TABLE IF EXISTS "Xray_Images" DROP CONSTRAINT IF EXISTS "Xray_Images_doctor_id_fkey";\n' +
+      '\n' +
+      '    -- 6. Modify Patients primary key\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      `      IF to_regclass('"Patients"') IS NOT NULL THEN\n` +
+      '        IF NOT EXISTS (SELECT 1 FROM "Patients" WHERE "user_id" IS NULL) THEN\n' +
+      '          ALTER TABLE "Patients" DROP CONSTRAINT IF EXISTS "Patients_pkey";\n' +
+      '          ALTER TABLE "Patients" DROP CONSTRAINT IF EXISTS "patients_pkey";\n' +
+      '          ALTER TABLE "Patients" DROP COLUMN IF EXISTS "id";\n' +
+      '          ALTER TABLE "Patients" ALTER COLUMN "user_id" SET NOT NULL;\n' +
+      '          ALTER TABLE "Patients" ADD CONSTRAINT "Patients_pkey" PRIMARY KEY ("user_id");\n' +
+      '        END IF;\n' +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- 7. Modify Doctors primary key\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      `      IF to_regclass('"Doctors"') IS NOT NULL THEN\n` +
+      '        IF NOT EXISTS (SELECT 1 FROM "Doctors" WHERE "user_id" IS NULL) THEN\n' +
+      '          ALTER TABLE "Doctors" DROP CONSTRAINT IF EXISTS "Doctors_pkey";\n' +
+      '          ALTER TABLE "Doctors" DROP CONSTRAINT IF EXISTS "doctors_pkey";\n' +
+      '          ALTER TABLE "Doctors" DROP COLUMN IF EXISTS "id";\n' +
+      '          ALTER TABLE "Doctors" ALTER COLUMN "user_id" SET NOT NULL;\n' +
+      '          ALTER TABLE "Doctors" ADD CONSTRAINT "Doctors_pkey" PRIMARY KEY ("user_id");\n' +
+      '        END IF;\n' +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- 8. Add user_id foreign keys to Users\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP CONSTRAINT IF EXISTS "patients_user_id_users_id_fk";\n' +
+      '    ALTER TABLE IF EXISTS "Patients" ADD CONSTRAINT "patients_user_id_users_id_fk" FOREIGN KEY (user_id) REFERENCES "Users"(id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP CONSTRAINT IF EXISTS "doctors_user_id_users_id_fk";\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" ADD CONSTRAINT "doctors_user_id_users_id_fk" FOREIGN KEY (user_id) REFERENCES "Users"(id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '\n' +
+      '    -- 9. Recreate referencing constraints\n' +
+      '    ALTER TABLE IF EXISTS "Chat_Threads" ADD CONSTRAINT "Chat_Threads_patient_id_fkey" FOREIGN KEY (patient_id) REFERENCES "Patients"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '    ALTER TABLE IF EXISTS "Diagnosis_Reports" ADD CONSTRAINT "Diagnosis_Reports_patient_id_fkey" FOREIGN KEY (patient_id) REFERENCES "Patients"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '    ALTER TABLE IF EXISTS "Xray_Images" ADD CONSTRAINT "Xray_Images_patient_id_fkey" FOREIGN KEY (patient_id) REFERENCES "Patients"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '\n' +
+      '    ALTER TABLE IF EXISTS "Chat_Threads" ADD CONSTRAINT "Chat_Threads_doctor_id_fkey" FOREIGN KEY (doctor_id) REFERENCES "Doctors"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '    ALTER TABLE IF EXISTS "Diagnosis_Reports" ADD CONSTRAINT "Diagnosis_Reports_doctor_id_fkey" FOREIGN KEY (doctor_id) REFERENCES "Doctors"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '    ALTER TABLE IF EXISTS "Xray_Images" ADD CONSTRAINT "Xray_Images_doctor_id_fkey" FOREIGN KEY (doctor_id) REFERENCES "Doctors"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '\n' +
+      '    -- 10. Drop duplicate columns\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "email";\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "password";\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "role";\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "phone";\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "is_verified";\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "verification_status";\n' +
+      '\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "email";\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "password";\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "role";\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "phone";\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "is_verified";\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "verification_status";\n' +
+      '\n' +
+      '    -- 11. Add approval_status to Doctors\n' +
+      `    ALTER TABLE IF EXISTS "Doctors" ADD COLUMN IF NOT EXISTS "approval_status" VARCHAR(20) NOT NULL DEFAULT 'PENDING';\n` +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      `      IF to_regclass('"Doctors"') IS NOT NULL\n` +
+      "         AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'doctors_approval_status_check') THEN\n" +
+      `        ALTER TABLE "Doctors" ADD CONSTRAINT doctors_approval_status_check CHECK (approval_status IN ('PENDING', 'APPROVED', 'REJECTED'));\n` +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- 12. Contacts table\n' +
+      '    CREATE TABLE IF NOT EXISTS "Contacts" (\n' +
+      '      "id" SERIAL PRIMARY KEY,\n' +
+      '      "doctor_id" INTEGER NOT NULL REFERENCES "Doctors"("user_id") ON UPDATE CASCADE ON DELETE CASCADE,\n' +
+      '      "patient_id" INTEGER NOT NULL REFERENCES "Patients"("user_id") ON UPDATE CASCADE ON DELETE CASCADE,\n' +
+      `      "status" VARCHAR(30) NOT NULL DEFAULT 'PENDING_VERIFICATION',\n` +
+      '      "otp_code" VARCHAR(10),\n' +
+      '      "otp_expires_at" TIMESTAMP WITH TIME ZONE,\n' +
+      '      "otp_used" BOOLEAN DEFAULT false,\n' +
+      '      "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),\n' +
+      '      "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),\n' +
+      '      UNIQUE ("doctor_id", "patient_id")\n' +
+      '    );\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      "      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'contacts_status_check') THEN\n" +
+      `        ALTER TABLE "Contacts" ADD CONSTRAINT contacts_status_check CHECK (status IN ('PENDING_VERIFICATION', 'ACTIVE'));\n` +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- Ensure OTP columns exist if table was already created\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      "      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contacts' AND column_name = 'otp_code') THEN\n" +
+      '        ALTER TABLE "Contacts" ADD COLUMN "otp_code" VARCHAR(10);\n' +
+      '      END IF;\n' +
+      "      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contacts' AND column_name = 'otp_expires_at') THEN\n" +
+      '        ALTER TABLE "Contacts" ADD COLUMN "otp_expires_at" TIMESTAMP WITH TIME ZONE;\n' +
+      '      END IF;\n' +
+      "      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contacts' AND column_name = 'otp_used') THEN\n" +
+      '        ALTER TABLE "Contacts" ADD COLUMN "otp_used" BOOLEAN DEFAULT false;\n' +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- Add language to Users\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      "      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Users' AND column_name = 'language') THEN\n" +
+      `        ALTER TABLE "Users" ADD COLUMN "language" VARCHAR(10) DEFAULT 'en';\n` +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    COMMIT;',
+    parameters: undefined
+  },
+  original: error: cannot drop constraint Patients_pkey on table "Patients" because other objects depend on it
+      at parseErrorMessage (E:\Downloads\final Chest-X_ray-diagnosis-system-Backend-Ziad (1)\Chest-X_ray-diagnosis-system-Backend-Ziad\backend\node_modules\pg-protocol\dist\parser.js:305:11)
+      at Parser.handlePacket (E:\Downloads\final Chest-X_ray-diagnosis-system-Backend-Ziad (1)\Chest-X_ray-diagnosis-system-Backend-Ziad\backend\node_modules\pg-protocol\dist\parser.js:143:27)
+      at Parser.parse (E:\Downloads\final Chest-X_ray-diagnosis-system-Backend-Ziad (1)\Chest-X_ray-diagnosis-system-Backend-Ziad\backend\node_modules\pg-protocol\dist\parser.js:37:38)
+      at Socket.<anonymous> (E:\Downloads\final Chest-X_ray-diagnosis-system-Backend-Ziad (1)\Chest-X_ray-diagnosis-system-Backend-Ziad\backend\node_modules\pg-protocol\dist\index.js:11:42)
+      at Socket.emit (node:events:509:28)
+      at addChunk (node:internal/streams/readable:563:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+      at Readable.push (node:internal/streams/readable:394:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+    length: 452,
+    severity: 'ERROR',
+    code: '2BP01',
+    detail: 'constraint Contacts_patient_id_fkey on table "Contacts" depends on index "Patients_pkey"',
+    hint: 'Use DROP ... CASCADE to drop the dependent objects too.',
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: 'SQL statement "ALTER TABLE "Patients" DROP CONSTRAINT IF EXISTS "Patients_pkey""\n' +
+      'PL/pgSQL function inline_code_block line 5 at SQL statement',
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'dependency.c',
+    line: '1154',
+    routine: 'reportDependentObjects',
+    sql: 'BEGIN;\n' +
+      '\n' +
+      '    -- 1. Users table\n' +
+      '    CREATE TABLE IF NOT EXISTS "Users" (\n' +
+      '      "id" SERIAL PRIMARY KEY,\n' +
+      '      "email" VARCHAR(255) NOT NULL UNIQUE,\n' +
+      '      "password" VARCHAR(255) NOT NULL,\n' +
+      '      "phone" VARCHAR(40),\n' +
+      `      "role" VARCHAR(255) NOT NULL DEFAULT 'PATIENT',\n` +
+      '      "is_verified" BOOLEAN NOT NULL DEFAULT false,\n' +
+      `      "verification_status" VARCHAR(30) NOT NULL DEFAULT 'pending',\n` +
+      '      "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),\n' +
+      '      "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()\n' +
+      '    );\n' +
+      '\n' +
+      '    ALTER TABLE "Users" ALTER COLUMN "role" DROP DEFAULT;\n' +
+      '    ALTER TABLE "Users" ALTER COLUMN "role" TYPE VARCHAR(20) USING UPPER("role"::text);\n' +
+      `    ALTER TABLE "Users" ALTER COLUMN "role" SET DEFAULT 'PATIENT';\n` +
+      '    ALTER TABLE "Users" DROP CONSTRAINT IF EXISTS users_role_check;\n' +
+      '    UPDATE "Users" SET "role" = UPPER("role");\n' +
+      '\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      "      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_role_check') THEN\n" +
+      `        ALTER TABLE "Users" ADD CONSTRAINT users_role_check CHECK (role IN ('PATIENT', 'DOCTOR', 'ADMIN'));\n` +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- 2. Add user_id column if not exists\n' +
+      '    ALTER TABLE IF EXISTS "Patients" ADD COLUMN IF NOT EXISTS "user_id" INTEGER;\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" ADD COLUMN IF NOT EXISTS "user_id" INTEGER;\n' +
+      '\n' +
+      '    -- 3. Populate Users\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      '      IF EXISTS (\n' +
+      '        SELECT 1 FROM information_schema.columns\n' +
+      "        WHERE table_name = 'Patients' AND column_name = 'email'\n" +
+      '      ) THEN\n' +
+      '        INSERT INTO "Users" ("email", "password", "phone", "role", "is_verified", "verification_status")\n' +
+      `        SELECT "email", "password", "phone", 'PATIENT', "is_verified", "verification_status"\n` +
+      '        FROM "Patients"\n' +
+      '        ON CONFLICT ("email") DO NOTHING;\n' +
+      '\n' +
+      '        UPDATE "Patients" p\n' +
+      '        SET "user_id" = u.id\n' +
+      '        FROM "Users" u\n' +
+      '        WHERE p.email = u.email AND p.user_id IS NULL;\n' +
+      '      END IF;\n' +
+      '\n' +
+      '      IF EXISTS (\n' +
+      '        SELECT 1 FROM information_schema.columns\n' +
+      "        WHERE table_name = 'Doctors' AND column_name = 'email'\n" +
+      '      ) THEN\n' +
+      '        INSERT INTO "Users" ("email", "password", "phone", "role", "is_verified", "verification_status")\n' +
+      `        SELECT "email", "password", "phone", 'DOCTOR', "is_verified", "verification_status"\n` +
+      '        FROM "Doctors"\n' +
+      '        ON CONFLICT ("email") DO NOTHING;\n' +
+      '\n' +
+      '        UPDATE "Doctors" d\n' +
+      '        SET "user_id" = u.id\n' +
+      '        FROM "Users" u\n' +
+      '        WHERE d.email = u.email AND d.user_id IS NULL;\n' +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- 5. Drop referencing constraints\n' +
+      '    ALTER TABLE IF EXISTS "Chat_Threads" DROP CONSTRAINT IF EXISTS "Chat_Threads_patient_id_fkey";\n' +
+      '    ALTER TABLE IF EXISTS "Diagnosis_Reports" DROP CONSTRAINT IF EXISTS "Diagnosis_Reports_patient_id_fkey";\n' +
+      '    ALTER TABLE IF EXISTS "Xray_Images" DROP CONSTRAINT IF EXISTS "Xray_Images_patient_id_fkey";\n' +
+      '\n' +
+      '    ALTER TABLE IF EXISTS "Chat_Threads" DROP CONSTRAINT IF EXISTS "Chat_Threads_doctor_id_fkey";\n' +
+      '    ALTER TABLE IF EXISTS "Diagnosis_Reports" DROP CONSTRAINT IF EXISTS "Diagnosis_Reports_doctor_id_fkey";\n' +
+      '    ALTER TABLE IF EXISTS "Xray_Images" DROP CONSTRAINT IF EXISTS "Xray_Images_doctor_id_fkey";\n' +
+      '\n' +
+      '    -- 6. Modify Patients primary key\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      `      IF to_regclass('"Patients"') IS NOT NULL THEN\n` +
+      '        IF NOT EXISTS (SELECT 1 FROM "Patients" WHERE "user_id" IS NULL) THEN\n' +
+      '          ALTER TABLE "Patients" DROP CONSTRAINT IF EXISTS "Patients_pkey";\n' +
+      '          ALTER TABLE "Patients" DROP CONSTRAINT IF EXISTS "patients_pkey";\n' +
+      '          ALTER TABLE "Patients" DROP COLUMN IF EXISTS "id";\n' +
+      '          ALTER TABLE "Patients" ALTER COLUMN "user_id" SET NOT NULL;\n' +
+      '          ALTER TABLE "Patients" ADD CONSTRAINT "Patients_pkey" PRIMARY KEY ("user_id");\n' +
+      '        END IF;\n' +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- 7. Modify Doctors primary key\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      `      IF to_regclass('"Doctors"') IS NOT NULL THEN\n` +
+      '        IF NOT EXISTS (SELECT 1 FROM "Doctors" WHERE "user_id" IS NULL) THEN\n' +
+      '          ALTER TABLE "Doctors" DROP CONSTRAINT IF EXISTS "Doctors_pkey";\n' +
+      '          ALTER TABLE "Doctors" DROP CONSTRAINT IF EXISTS "doctors_pkey";\n' +
+      '          ALTER TABLE "Doctors" DROP COLUMN IF EXISTS "id";\n' +
+      '          ALTER TABLE "Doctors" ALTER COLUMN "user_id" SET NOT NULL;\n' +
+      '          ALTER TABLE "Doctors" ADD CONSTRAINT "Doctors_pkey" PRIMARY KEY ("user_id");\n' +
+      '        END IF;\n' +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- 8. Add user_id foreign keys to Users\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP CONSTRAINT IF EXISTS "patients_user_id_users_id_fk";\n' +
+      '    ALTER TABLE IF EXISTS "Patients" ADD CONSTRAINT "patients_user_id_users_id_fk" FOREIGN KEY (user_id) REFERENCES "Users"(id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP CONSTRAINT IF EXISTS "doctors_user_id_users_id_fk";\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" ADD CONSTRAINT "doctors_user_id_users_id_fk" FOREIGN KEY (user_id) REFERENCES "Users"(id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '\n' +
+      '    -- 9. Recreate referencing constraints\n' +
+      '    ALTER TABLE IF EXISTS "Chat_Threads" ADD CONSTRAINT "Chat_Threads_patient_id_fkey" FOREIGN KEY (patient_id) REFERENCES "Patients"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '    ALTER TABLE IF EXISTS "Diagnosis_Reports" ADD CONSTRAINT "Diagnosis_Reports_patient_id_fkey" FOREIGN KEY (patient_id) REFERENCES "Patients"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '    ALTER TABLE IF EXISTS "Xray_Images" ADD CONSTRAINT "Xray_Images_patient_id_fkey" FOREIGN KEY (patient_id) REFERENCES "Patients"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '\n' +
+      '    ALTER TABLE IF EXISTS "Chat_Threads" ADD CONSTRAINT "Chat_Threads_doctor_id_fkey" FOREIGN KEY (doctor_id) REFERENCES "Doctors"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '    ALTER TABLE IF EXISTS "Diagnosis_Reports" ADD CONSTRAINT "Diagnosis_Reports_doctor_id_fkey" FOREIGN KEY (doctor_id) REFERENCES "Doctors"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '    ALTER TABLE IF EXISTS "Xray_Images" ADD CONSTRAINT "Xray_Images_doctor_id_fkey" FOREIGN KEY (doctor_id) REFERENCES "Doctors"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+      '\n' +
+      '    -- 10. Drop duplicate columns\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "email";\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "password";\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "role";\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "phone";\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "is_verified";\n' +
+      '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "verification_status";\n' +
+      '\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "email";\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "password";\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "role";\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "phone";\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "is_verified";\n' +
+      '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "verification_status";\n' +
+      '\n' +
+      '    -- 11. Add approval_status to Doctors\n' +
+      `    ALTER TABLE IF EXISTS "Doctors" ADD COLUMN IF NOT EXISTS "approval_status" VARCHAR(20) NOT NULL DEFAULT 'PENDING';\n` +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      `      IF to_regclass('"Doctors"') IS NOT NULL\n` +
+      "         AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'doctors_approval_status_check') THEN\n" +
+      `        ALTER TABLE "Doctors" ADD CONSTRAINT doctors_approval_status_check CHECK (approval_status IN ('PENDING', 'APPROVED', 'REJECTED'));\n` +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- 12. Contacts table\n' +
+      '    CREATE TABLE IF NOT EXISTS "Contacts" (\n' +
+      '      "id" SERIAL PRIMARY KEY,\n' +
+      '      "doctor_id" INTEGER NOT NULL REFERENCES "Doctors"("user_id") ON UPDATE CASCADE ON DELETE CASCADE,\n' +
+      '      "patient_id" INTEGER NOT NULL REFERENCES "Patients"("user_id") ON UPDATE CASCADE ON DELETE CASCADE,\n' +
+      `      "status" VARCHAR(30) NOT NULL DEFAULT 'PENDING_VERIFICATION',\n` +
+      '      "otp_code" VARCHAR(10),\n' +
+      '      "otp_expires_at" TIMESTAMP WITH TIME ZONE,\n' +
+      '      "otp_used" BOOLEAN DEFAULT false,\n' +
+      '      "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),\n' +
+      '      "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),\n' +
+      '      UNIQUE ("doctor_id", "patient_id")\n' +
+      '    );\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      "      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'contacts_status_check') THEN\n" +
+      `        ALTER TABLE "Contacts" ADD CONSTRAINT contacts_status_check CHECK (status IN ('PENDING_VERIFICATION', 'ACTIVE'));\n` +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- Ensure OTP columns exist if table was already created\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      "      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contacts' AND column_name = 'otp_code') THEN\n" +
+      '        ALTER TABLE "Contacts" ADD COLUMN "otp_code" VARCHAR(10);\n' +
+      '      END IF;\n' +
+      "      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contacts' AND column_name = 'otp_expires_at') THEN\n" +
+      '        ALTER TABLE "Contacts" ADD COLUMN "otp_expires_at" TIMESTAMP WITH TIME ZONE;\n' +
+      '      END IF;\n' +
+      "      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contacts' AND column_name = 'otp_used') THEN\n" +
+      '        ALTER TABLE "Contacts" ADD COLUMN "otp_used" BOOLEAN DEFAULT false;\n' +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    -- Add language to Users\n' +
+      '    DO $$\n' +
+      '    BEGIN\n' +
+      "      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Users' AND column_name = 'language') THEN\n" +
+      `        ALTER TABLE "Users" ADD COLUMN "language" VARCHAR(10) DEFAULT 'en';\n` +
+      '      END IF;\n' +
+      '    END $$;\n' +
+      '\n' +
+      '    COMMIT;',
+    parameters: undefined
+  },
+  sql: 'BEGIN;\n' +
+    '\n' +
+    '    -- 1. Users table\n' +
+    '    CREATE TABLE IF NOT EXISTS "Users" (\n' +
+    '      "id" SERIAL PRIMARY KEY,\n' +
+    '      "email" VARCHAR(255) NOT NULL UNIQUE,\n' +
+    '      "password" VARCHAR(255) NOT NULL,\n' +
+    '      "phone" VARCHAR(40),\n' +
+    `      "role" VARCHAR(255) NOT NULL DEFAULT 'PATIENT',\n` +
+    '      "is_verified" BOOLEAN NOT NULL DEFAULT false,\n' +
+    `      "verification_status" VARCHAR(30) NOT NULL DEFAULT 'pending',\n` +
+    '      "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),\n' +
+    '      "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()\n' +
+    '    );\n' +
+    '\n' +
+    '    ALTER TABLE "Users" ALTER COLUMN "role" DROP DEFAULT;\n' +
+    '    ALTER TABLE "Users" ALTER COLUMN "role" TYPE VARCHAR(20) USING UPPER("role"::text);\n' +
+    `    ALTER TABLE "Users" ALTER COLUMN "role" SET DEFAULT 'PATIENT';\n` +
+    '    ALTER TABLE "Users" DROP CONSTRAINT IF EXISTS users_role_check;\n' +
+    '    UPDATE "Users" SET "role" = UPPER("role");\n' +
+    '\n' +
+    '    DO $$\n' +
+    '    BEGIN\n' +
+    "      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_role_check') THEN\n" +
+    `        ALTER TABLE "Users" ADD CONSTRAINT users_role_check CHECK (role IN ('PATIENT', 'DOCTOR', 'ADMIN'));\n` +
+    '      END IF;\n' +
+    '    END $$;\n' +
+    '\n' +
+    '    -- 2. Add user_id column if not exists\n' +
+    '    ALTER TABLE IF EXISTS "Patients" ADD COLUMN IF NOT EXISTS "user_id" INTEGER;\n' +
+    '    ALTER TABLE IF EXISTS "Doctors" ADD COLUMN IF NOT EXISTS "user_id" INTEGER;\n' +
+    '\n' +
+    '    -- 3. Populate Users\n' +
+    '    DO $$\n' +
+    '    BEGIN\n' +
+    '      IF EXISTS (\n' +
+    '        SELECT 1 FROM information_schema.columns\n' +
+    "        WHERE table_name = 'Patients' AND column_name = 'email'\n" +
+    '      ) THEN\n' +
+    '        INSERT INTO "Users" ("email", "password", "phone", "role", "is_verified", "verification_status")\n' +
+    `        SELECT "email", "password", "phone", 'PATIENT', "is_verified", "verification_status"\n` +
+    '        FROM "Patients"\n' +
+    '        ON CONFLICT ("email") DO NOTHING;\n' +
+    '\n' +
+    '        UPDATE "Patients" p\n' +
+    '        SET "user_id" = u.id\n' +
+    '        FROM "Users" u\n' +
+    '        WHERE p.email = u.email AND p.user_id IS NULL;\n' +
+    '      END IF;\n' +
+    '\n' +
+    '      IF EXISTS (\n' +
+    '        SELECT 1 FROM information_schema.columns\n' +
+    "        WHERE table_name = 'Doctors' AND column_name = 'email'\n" +
+    '      ) THEN\n' +
+    '        INSERT INTO "Users" ("email", "password", "phone", "role", "is_verified", "verification_status")\n' +
+    `        SELECT "email", "password", "phone", 'DOCTOR', "is_verified", "verification_status"\n` +
+    '        FROM "Doctors"\n' +
+    '        ON CONFLICT ("email") DO NOTHING;\n' +
+    '\n' +
+    '        UPDATE "Doctors" d\n' +
+    '        SET "user_id" = u.id\n' +
+    '        FROM "Users" u\n' +
+    '        WHERE d.email = u.email AND d.user_id IS NULL;\n' +
+    '      END IF;\n' +
+    '    END $$;\n' +
+    '\n' +
+    '    -- 5. Drop referencing constraints\n' +
+    '    ALTER TABLE IF EXISTS "Chat_Threads" DROP CONSTRAINT IF EXISTS "Chat_Threads_patient_id_fkey";\n' +
+    '    ALTER TABLE IF EXISTS "Diagnosis_Reports" DROP CONSTRAINT IF EXISTS "Diagnosis_Reports_patient_id_fkey";\n' +
+    '    ALTER TABLE IF EXISTS "Xray_Images" DROP CONSTRAINT IF EXISTS "Xray_Images_patient_id_fkey";\n' +
+    '\n' +
+    '    ALTER TABLE IF EXISTS "Chat_Threads" DROP CONSTRAINT IF EXISTS "Chat_Threads_doctor_id_fkey";\n' +
+    '    ALTER TABLE IF EXISTS "Diagnosis_Reports" DROP CONSTRAINT IF EXISTS "Diagnosis_Reports_doctor_id_fkey";\n' +
+    '    ALTER TABLE IF EXISTS "Xray_Images" DROP CONSTRAINT IF EXISTS "Xray_Images_doctor_id_fkey";\n' +
+    '\n' +
+    '    -- 6. Modify Patients primary key\n' +
+    '    DO $$\n' +
+    '    BEGIN\n' +
+    `      IF to_regclass('"Patients"') IS NOT NULL THEN\n` +
+    '        IF NOT EXISTS (SELECT 1 FROM "Patients" WHERE "user_id" IS NULL) THEN\n' +
+    '          ALTER TABLE "Patients" DROP CONSTRAINT IF EXISTS "Patients_pkey";\n' +
+    '          ALTER TABLE "Patients" DROP CONSTRAINT IF EXISTS "patients_pkey";\n' +
+    '          ALTER TABLE "Patients" DROP COLUMN IF EXISTS "id";\n' +
+    '          ALTER TABLE "Patients" ALTER COLUMN "user_id" SET NOT NULL;\n' +
+    '          ALTER TABLE "Patients" ADD CONSTRAINT "Patients_pkey" PRIMARY KEY ("user_id");\n' +
+    '        END IF;\n' +
+    '      END IF;\n' +
+    '    END $$;\n' +
+    '\n' +
+    '    -- 7. Modify Doctors primary key\n' +
+    '    DO $$\n' +
+    '    BEGIN\n' +
+    `      IF to_regclass('"Doctors"') IS NOT NULL THEN\n` +
+    '        IF NOT EXISTS (SELECT 1 FROM "Doctors" WHERE "user_id" IS NULL) THEN\n' +
+    '          ALTER TABLE "Doctors" DROP CONSTRAINT IF EXISTS "Doctors_pkey";\n' +
+    '          ALTER TABLE "Doctors" DROP CONSTRAINT IF EXISTS "doctors_pkey";\n' +
+    '          ALTER TABLE "Doctors" DROP COLUMN IF EXISTS "id";\n' +
+    '          ALTER TABLE "Doctors" ALTER COLUMN "user_id" SET NOT NULL;\n' +
+    '          ALTER TABLE "Doctors" ADD CONSTRAINT "Doctors_pkey" PRIMARY KEY ("user_id");\n' +
+    '        END IF;\n' +
+    '      END IF;\n' +
+    '    END $$;\n' +
+    '\n' +
+    '    -- 8. Add user_id foreign keys to Users\n' +
+    '    ALTER TABLE IF EXISTS "Patients" DROP CONSTRAINT IF EXISTS "patients_user_id_users_id_fk";\n' +
+    '    ALTER TABLE IF EXISTS "Patients" ADD CONSTRAINT "patients_user_id_users_id_fk" FOREIGN KEY (user_id) REFERENCES "Users"(id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+    '\n' +
+    '    ALTER TABLE IF EXISTS "Doctors" DROP CONSTRAINT IF EXISTS "doctors_user_id_users_id_fk";\n' +
+    '    ALTER TABLE IF EXISTS "Doctors" ADD CONSTRAINT "doctors_user_id_users_id_fk" FOREIGN KEY (user_id) REFERENCES "Users"(id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+    '\n' +
+    '    -- 9. Recreate referencing constraints\n' +
+    '    ALTER TABLE IF EXISTS "Chat_Threads" ADD CONSTRAINT "Chat_Threads_patient_id_fkey" FOREIGN KEY (patient_id) REFERENCES "Patients"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+    '    ALTER TABLE IF EXISTS "Diagnosis_Reports" ADD CONSTRAINT "Diagnosis_Reports_patient_id_fkey" FOREIGN KEY (patient_id) REFERENCES "Patients"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+    '    ALTER TABLE IF EXISTS "Xray_Images" ADD CONSTRAINT "Xray_Images_patient_id_fkey" FOREIGN KEY (patient_id) REFERENCES "Patients"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+    '\n' +
+    '    ALTER TABLE IF EXISTS "Chat_Threads" ADD CONSTRAINT "Chat_Threads_doctor_id_fkey" FOREIGN KEY (doctor_id) REFERENCES "Doctors"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+    '    ALTER TABLE IF EXISTS "Diagnosis_Reports" ADD CONSTRAINT "Diagnosis_Reports_doctor_id_fkey" FOREIGN KEY (doctor_id) REFERENCES "Doctors"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+    '    ALTER TABLE IF EXISTS "Xray_Images" ADD CONSTRAINT "Xray_Images_doctor_id_fkey" FOREIGN KEY (doctor_id) REFERENCES "Doctors"(user_id) ON UPDATE CASCADE ON DELETE CASCADE;\n' +
+    '\n' +
+    '    -- 10. Drop duplicate columns\n' +
+    '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "email";\n' +
+    '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "password";\n' +
+    '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "role";\n' +
+    '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "phone";\n' +
+    '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "is_verified";\n' +
+    '    ALTER TABLE IF EXISTS "Patients" DROP COLUMN IF EXISTS "verification_status";\n' +
+    '\n' +
+    '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "email";\n' +
+    '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "password";\n' +
+    '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "role";\n' +
+    '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "phone";\n' +
+    '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "is_verified";\n' +
+    '    ALTER TABLE IF EXISTS "Doctors" DROP COLUMN IF EXISTS "verification_status";\n' +
+    '\n' +
+    '    -- 11. Add approval_status to Doctors\n' +
+    `    ALTER TABLE IF EXISTS "Doctors" ADD COLUMN IF NOT EXISTS "approval_status" VARCHAR(20) NOT NULL DEFAULT 'PENDING';\n` +
+    '    DO $$\n' +
+    '    BEGIN\n' +
+    `      IF to_regclass('"Doctors"') IS NOT NULL\n` +
+    "         AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'doctors_approval_status_check') THEN\n" +
+    `        ALTER TABLE "Doctors" ADD CONSTRAINT doctors_approval_status_check CHECK (approval_status IN ('PENDING', 'APPROVED', 'REJECTED'));\n` +
+    '      END IF;\n' +
+    '    END $$;\n' +
+    '\n' +
+    '    -- 12. Contacts table\n' +
+    '    CREATE TABLE IF NOT EXISTS "Contacts" (\n' +
+    '      "id" SERIAL PRIMARY KEY,\n' +
+    '      "doctor_id" INTEGER NOT NULL REFERENCES "Doctors"("user_id") ON UPDATE CASCADE ON DELETE CASCADE,\n' +
+    '      "patient_id" INTEGER NOT NULL REFERENCES "Patients"("user_id") ON UPDATE CASCADE ON DELETE CASCADE,\n' +
+    `      "status" VARCHAR(30) NOT NULL DEFAULT 'PENDING_VERIFICATION',\n` +
+    '      "otp_code" VARCHAR(10),\n' +
+    '      "otp_expires_at" TIMESTAMP WITH TIME ZONE,\n' +
+    '      "otp_used" BOOLEAN DEFAULT false,\n' +
+    '      "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),\n' +
+    '      "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),\n' +
+    '      UNIQUE ("doctor_id", "patient_id")\n' +
+    '    );\n' +
+    '    DO $$\n' +
+    '    BEGIN\n' +
+    "      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'contacts_status_check') THEN\n" +
+    `        ALTER TABLE "Contacts" ADD CONSTRAINT contacts_status_check CHECK (status IN ('PENDING_VERIFICATION', 'ACTIVE'));\n` +
+    '      END IF;\n' +
+    '    END $$;\n' +
+    '\n' +
+    '    -- Ensure OTP columns exist if table was already created\n' +
+    '    DO $$\n' +
+    '    BEGIN\n' +
+    "      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contacts' AND column_name = 'otp_code') THEN\n" +
+    '        ALTER TABLE "Contacts" ADD COLUMN "otp_code" VARCHAR(10);\n' +
+    '      END IF;\n' +
+    "      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contacts' AND column_name = 'otp_expires_at') THEN\n" +
+    '        ALTER TABLE "Contacts" ADD COLUMN "otp_expires_at" TIMESTAMP WITH TIME ZONE;\n' +
+    '      END IF;\n' +
+    "      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Contacts' AND column_name = 'otp_used') THEN\n" +
+    '        ALTER TABLE "Contacts" ADD COLUMN "otp_used" BOOLEAN DEFAULT false;\n' +
+    '      END IF;\n' +
+    '    END $$;\n' +
+    '\n' +
+    '    -- Add language to Users\n' +
+    '    DO $$\n' +
+    '    BEGIN\n' +
+    "      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Users' AND column_name = 'language') THEN\n" +
+    `        ALTER TABLE "Users" ADD COLUMN "language" VARCHAR(10) DEFAULT 'en';\n` +
+    '      END IF;\n' +
+    '    END $$;\n' +
+    '\n' +
+    '    COMMIT;',
+  parameters: {}
+}

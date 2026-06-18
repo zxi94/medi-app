@@ -1,0 +1,114 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+  PATIENT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ContactStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+}
+
+model User {
+  id          String        @id @default(uuid())
+  email       String        @unique
+  password    String
+  role        Role          @default(PATIENT)
+  phone       String        @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  is_verified Boolean       @default(false)
+  language    String        @default("en")
+  messages    ChatMessage[]
+
+  // One-to-One Relationships
+  doctor  Doctor?
+  patient Patient?
+
+  @@map("users")
+}
+
+model Doctor {
+  id             String         @id @default(uuid())
+  userId         String         @unique @map("user_id")
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization String
+  licenseNumber  String         @unique @map("license_number")
+  approvalStatus ApprovalStatus @default(PENDING) @map("approval_status")
+  contacts       Contact[]
+  threads        ChatThread[]
+
+  @@map("doctors")
+}
+
+model Patient {
+  id             String       @id @default(uuid())
+  userId         String       @unique @map("user_id")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dateOfBirth    DateTime     @map("date_of_birth")
+  medicalHistory String?      @map("medical_history")
+  contacts       Contact[]
+  threads        ChatThread[]
+
+  @@map("patients")
+}
+
+model Contact {
+  id        String        @id @default(uuid())
+  doctorId  String        @map("doctor_id")
+  patientId String        @map("patient_id")
+  status    ContactStatus @default(PENDING_VERIFICATION)
+  otpCode   String?       @map("otp_code")
+  otpExpiresAt DateTime?  @map("otp_expires_at")
+  otpUsed   Boolean?      @default(false) @map("otp_used")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, patientId])
+  @@map("contacts")
+}
+
+model ChatThread {
+  id        String        @id @default(uuid())
+  patientId String        @map("patient_id")
+  doctorId  String        @map("doctor_id")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  patient  Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor   Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@map("chat_threads")
+}
+
+model ChatMessage {
+  id           String     @id @default(uuid())
+  threadId     String     @map("thread_id")
+  senderUserId String     @map("sender_user_id")
+  body         String
+  createdAt    DateTime   @default(now()) @map("created_at")
+  readAt       DateTime?  @map("read_at")
+
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User       @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}

@@ -1,0 +1,13 @@
+﻿python :   File "<string>", line 1
+At line:1 char:1
++ python -c "import json, sys; nb=json.load(open(r'e:\Downloads\final C ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (  File "<string>", line 1:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    import json, sys; nb=json.load(open(r'e:\Downloads\final Chest-X_ray-diagnosis-system-Backend-Ziad 
+(1)\Chest-X_ray-diagnosis-system-Backend-Ziad\ai_microservice\model_setup.ipynb','r',encoding='utf-8')); [print(f'--- 
+CELL {i} ({c[" cell_type\]})
+                                                                                                                       
+                                                                                                                   ^
+SyntaxError: unterminated string literal (detected at line 1)

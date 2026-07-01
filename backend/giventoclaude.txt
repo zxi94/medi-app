@@ -1,0 +1,1245 @@
+-e \n==============================================================================\nFILE: ./Dockerfile\n==============================================================================\n
+# Use Node.js 
+FROM node:18
+
+# Create app directory
+WORKDIR /usr/src/app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Bundle app source
+COPY . .
+
+# Match the port you've been using in Flutter
+EXPOSE 5001
+
+# Start the server
+CMD [ "node", "src/app.js" ] 
+-e \n==============================================================================\nFILE: ./.env\n==============================================================================\n
+PORT=5001
+NODE_ENV=development
+
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=medical_imaging_db
+DB_USER=ziadmohammad
+DB_PASSWORD=Zxi@09043006
+
+JWT_SECRET=replace_with_strong_secret
+JWT_EXPIRES_IN=1d
+
+UPLOAD_DIR=uploads
+MAX_FILE_SIZE_MB=10
+
+AI_SERVICE_URL=http://127.0.0.1:8000
+AI_SERVICE_TIMEOUT_MS=10000-e \n==============================================================================\nFILE: ./openapi.yaml\n==============================================================================\n
+openapi: 3.0.3
+info:
+  title: Medical Imaging Backend API
+  version: 1.0.0
+servers:
+  - url: http://localhost:5001
+tags:
+  - name: Auth
+  - name: Xray
+  - name: History
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ApiError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            details:
+              type: object
+              nullable: true
+      required: [success, message]
+
+    UserBrief:
+      type: object
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        name: { type: string }
+
+    LoginResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string, example: "Login successful" }
+        data:
+          type: object
+          properties:
+            token: { type: string }
+            role: { type: string, example: "patient" }
+            user:
+              $ref: '#/components/schemas/UserBrief'
+        # Back-compat legacy top-level fields:
+        token: { type: string }
+        role: { type: string }
+        user:
+          $ref: '#/components/schemas/UserBrief'
+      required: [success, message]
+
+    SignupResponse:
+      allOf:
+        - $ref: '#/components/schemas/LoginResponse'
+      example:
+        success: true
+        message: "Signup successful"
+        data:
+          token: "..."
+          role: "doctor"
+          user: { id: 1, email: "d@x.com", name: "Dr X" }
+        token: "..."
+        role: "doctor"
+        user: { id: 1, email: "d@x.com", name: "Dr X" }
+
+paths:
+  /health:
+    get:
+      tags: [History]
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+  /:
+    get:
+      summary: API root
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  health: { type: string }
+
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: Create an account (doctor or patient)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role: { type: string, enum: [doctor, patient] }
+                name: { type: string }
+                email: { type: string }
+                password: { type: string, minLength: 8 }
+                specialization: { type: string, nullable: true }
+                medical_certificate: { type: string, nullable: true }
+                gender: { type: string, nullable: true }
+                dob: { type: string, nullable: true }
+                medical_history: { type: string, nullable: true }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login (doctor or patient)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role: { type: string, enum: [doctor, patient] }
+                email: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/xray/upload:
+    post:
+      tags: [Xray]
+      summary: Upload an X-ray (multipart)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                xray:
+                  type: string
+                  format: binary
+                patient_id:
+                  type: integer
+                  nullable: true
+      responses:
+        '201':
+          description: Uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: Uploaded }
+                  data:
+                    type: object
+                    properties:
+                      xray: { type: object }
+                  # Back-compat legacy top-level field:
+                  xray: { type: object }
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/xray/analyze/{id}:
+    post:
+      tags: [Xray]
+      summary: Analyze an uploaded X-ray using the AI service
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: XrayImage.id
+      responses:
+        '200':
+          description: Analysis complete
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: Analysis complete }
+                  data:
+                    type: object
+                    properties:
+                      result: { type: object }
+                  # Back-compat legacy top-level field:
+                  result: { type: object }
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/history/patient/{id}:
+    get:
+      tags: [History]
+      summary: Get patient history
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      patient_id: { type: integer }
+                      xrays: { type: array, items: { type: object } }
+                  # Back-compat legacy top-level fields:
+                  patient_id: { type: integer }
+                  xrays: { type: array, items: { type: object } }
+
+  /api/history/doctor:
+    get:
+      tags: [History]
+      summary: Get doctor history (doctor role)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      doctor_id: { type: integer }
+                      reports: { type: array, items: { type: object } }
+                  # Back-compat legacy top-level fields:
+                  doctor_id: { type: integer }
+                  reports: { type: array, items: { type: object } }
+
+-e \n==============================================================================\nFILE: ./src/middleware/authMiddleware.js\n==============================================================================\n
+const jwt = require("jsonwebtoken");
+
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!token) {
+    const err = new Error("Missing token");
+    err.statusCode = 401;
+    err.code = "UNAUTHORIZED";
+    return next(err);
+  }
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    return next();
+  } catch (error) {
+    const err = new Error("Invalid token");
+    err.statusCode = 401;
+    err.code = "UNAUTHORIZED";
+    err.name = error.name;
+    return next(err);
+  }
+}
+
+module.exports = authMiddleware;
+-e \n==============================================================================\nFILE: ./src/middleware/errorMiddleware.js\n==============================================================================\n
+const { sendError } = require("../utils/response");
+
+function errorMiddleware(err, _req, res, _next) {
+  const statusCode = err.statusCode || 500;
+  let message = err.message || "Internal server error";
+  let code = err.code || "INTERNAL_ERROR";
+  let details = err.details || null;
+
+  // JWT errors (jsonwebtoken)
+  if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
+    return sendError(res, {
+      statusCode: 401,
+      message: "Invalid token",
+      code: "UNAUTHORIZED"
+    });
+  }
+
+  // Sequelize/Postgres errors
+  if (err.original && typeof err.original.code === "string") {
+    const pgCode = err.original.code;
+    if (pgCode === "23505") {
+      // unique_violation
+      return sendError(res, {
+        statusCode: 409,
+        message: message || "Conflict",
+        code: "CONFLICT"
+      });
+    }
+    if (pgCode === "23503") {
+      // foreign_key_violation
+      return sendError(res, {
+        statusCode: 400,
+        message: message || "Bad request",
+        code: "BAD_REQUEST",
+        details
+      });
+    }
+  }
+
+  // multer fileFilter errors and other validation-ish errors
+  if (message === "Unsupported file type") {
+    return sendError(res, {
+      statusCode: 400,
+      message,
+      code: "VALIDATION_ERROR",
+      details
+    });
+  }
+
+  if (code === "VALIDATION_ERROR" || statusCode === 400) {
+    return sendError(res, {
+      statusCode: 400,
+      message,
+      code: "VALIDATION_ERROR",
+      details
+    });
+  }
+
+  if (statusCode === 401) {
+    return sendError(res, {
+      statusCode: 401,
+      message,
+      code: "UNAUTHORIZED",
+      details
+    });
+  }
+
+  if (statusCode === 403) {
+    return sendError(res, {
+      statusCode: 403,
+      message,
+      code: "FORBIDDEN",
+      details
+    });
+  }
+
+  return sendError(res, {
+    statusCode,
+    message,
+    code,
+    details
+  });
+}
+
+module.exports = errorMiddleware;
+-e \n==============================================================================\nFILE: ./src/middleware/roleMiddleware.js\n==============================================================================\n
+function requireAnyRole(allowedRoles = []) {
+  const allowed = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+
+  return (req, _res, next) => {
+    if (!req.user?.role) {
+      const err = new Error("Unauthorized");
+      err.statusCode = 401;
+      err.code = "UNAUTHORIZED";
+      return next(err);
+    }
+
+    if (!allowed.includes(req.user.role)) {
+      const err = new Error("Forbidden for current role");
+      err.statusCode = 403;
+      err.code = "FORBIDDEN";
+      return next(err);
+    }
+
+    return next();
+  };
+}
+
+function requireRole(role) {
+  return requireAnyRole([role]);
+}
+
+module.exports = {
+  requireRole,
+  requireAnyRole
+};
+-e \n==============================================================================\nFILE: ./src/middleware/validate.js\n==============================================================================\n
+const Joi = require("joi");
+const { ROLES } = require("../constants/roles");
+
+function validateBody(schema) {
+  return (req, _res, next) => {
+    const { error, value } = schema.validate(req.body, {
+      abortEarly: false,
+      allowUnknown: true,
+      stripUnknown: true
+    });
+
+    if (error) {
+      error.statusCode = 400;
+      error.code = "VALIDATION_ERROR";
+      error.message = error.details?.[0]?.message || "Validation error";
+      return next(error);
+    }
+
+    req.body = value;
+    return next();
+  };
+}
+
+function validateParams(schema) {
+  return (req, _res, next) => {
+    const { error, value } = schema.validate(req.params, {
+      abortEarly: false,
+      allowUnknown: true,
+      stripUnknown: true,
+      convert: true
+    });
+
+    if (error) {
+      error.statusCode = 400;
+      error.code = "VALIDATION_ERROR";
+      error.message = error.details?.[0]?.message || "Validation error";
+      return next(error);
+    }
+
+    req.params = value;
+    return next();
+  };
+}
+
+// Signup is patient only — no role field needed
+const signupSchema = Joi.object({
+  name: Joi.string().min(1).required(),
+  email: Joi.string().email().required(),
+  password: Joi.string().min(8).required(),
+  gender: Joi.string().min(1).required(),
+  dob: Joi.string().min(1).required(),
+  medical_history: Joi.string().allow(null, "").optional()
+}).required();
+
+const loginSchema = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().min(1).required()
+}).required();
+
+const analyzeIdSchema = Joi.object({
+  id: Joi.number().integer().positive().required()
+}).required();
+
+function validateXrayUpload(req, _res, next) {
+  if (!req.file) {
+    const err = new Error("X-ray file is required");
+    err.statusCode = 400;
+    err.code = "VALIDATION_ERROR";
+    return next(err);
+  }
+
+  const role = req.user?.role;
+  const patientIdSchema = Joi.number().integer().positive();
+  const schema = Joi.object({
+    patient_id: role === ROLES.DOCTOR ? patientIdSchema.required() : patientIdSchema.optional()
+  }).required();
+
+  const { error, value } = schema.validate(req.body, {
+    abortEarly: false,
+    allowUnknown: true,
+    stripUnknown: true,
+    convert: true
+  });
+
+  if (error) {
+    error.statusCode = 400;
+    error.code = "VALIDATION_ERROR";
+    error.message = error.details?.[0]?.message || "Validation error";
+    return next(error);
+  }
+
+  req.body = value;
+  return next();
+}
+
+module.exports = {
+  validateBody,
+  validateParams,
+  validateXrayUpload,
+  signupSchema,
+  loginSchema,
+  analyzeIdSchema
+};-e \n==============================================================================\nFILE: ./src/middleware/uploadMiddleware.js\n==============================================================================\n
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+
+const uploadDir = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "uploads");
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
+  }
+});
+
+const fileFilter = (_req, file, cb) => {
+  const allowed = [".png", ".jpg", ".jpeg", ".dcm"];
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (!allowed.includes(ext)) return cb(new Error("Unsupported file type"));
+  return cb(null, true);
+};
+
+const maxBytes = Number(process.env.MAX_FILE_SIZE_MB || 10) * 1024 * 1024;
+const upload = multer({ storage, fileFilter, limits: { fileSize: maxBytes } });
+
+module.exports = upload;
+-e \n==============================================================================\nFILE: ./src/config/db.js\n==============================================================================\n
+require("dotenv").config();
+const { Sequelize } = require("sequelize");
+
+const DB_NAME = process.env.DB_NAME;
+const DB_USER = process.env.DB_USER;
+const DB_PASSWORD = process.env.DB_PASSWORD;
+const DB_HOST = process.env.DB_HOST;
+const DB_PORT = Number(process.env.DB_PORT || 5432);
+
+// eslint-disable-next-line no-console
+console.log(
+  `[DB] Initializing PostgreSQL connection: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME}`
+);
+
+const sequelize = new Sequelize(
+  DB_NAME,
+  DB_USER,
+  DB_PASSWORD,
+  {
+    host: DB_HOST,
+    port: DB_PORT,
+    dialect: "postgres",
+    logging: (message) => {
+      // eslint-disable-next-line no-console
+      console.log(`[Sequelize] ${message}`);
+    }
+  }
+);
+
+sequelize
+  .authenticate()
+  .then(() => {
+    // eslint-disable-next-line no-console
+    console.log("[DB] Connection established successfully.");
+  })
+  .catch((error) => {
+    // eslint-disable-next-line no-console
+    console.error("[DB] Connection failed:", error.message);
+  });
+
+module.exports = sequelize;
+-e \n==============================================================================\nFILE: ./src/server.js\n==============================================================================\n
+require("dotenv").config();
+const fs = require("fs");
+const path = require("path");
+const app = require("./app");
+const { sequelize } = require("./models");
+
+const port = Number(process.env.PORT || 5000);
+const uploadDir = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "uploads");
+fs.mkdirSync(uploadDir, { recursive: true });
+// eslint-disable-next-line no-console
+console.log(`[DB] Using DB user: ${process.env.DB_USER}`);
+
+async function start() {
+  try {
+    await sequelize.authenticate();
+    await sequelize.sync();
+    app.listen(port, () => {
+      // eslint-disable-next-line no-console
+      console.log(`Backend running on :${port}`);
+    });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Startup failed", error);
+    process.exit(1);
+  }
+}
+
+start();
+-e \n==============================================================================\nFILE: ./src/constants/roles.js\n==============================================================================\n
+const ROLES = Object.freeze({
+  PATIENT: "patient",
+  DOCTOR: "doctor",
+  ADMIN: "admin"
+});
+
+const ASSIGNABLE_SELF_REGISTRATION_ROLE = ROLES.PATIENT;
+
+module.exports = {
+  ROLES,
+  ASSIGNABLE_SELF_REGISTRATION_ROLE
+};
+-e \n==============================================================================\nFILE: ./src/utils/response.js\n==============================================================================\n
+function sendSuccess(res, { statusCode = 200, message = "", data = {}, legacy = {} } = {}) {
+  return res.status(statusCode).json({
+    success: true,
+    message,
+    data,
+    ...legacy
+  });
+}
+
+function sendError(
+  res,
+  { statusCode = 500, message = "Internal server error", code = "INTERNAL_ERROR", details = null, legacy = {} } = {}
+) {
+  return res.status(statusCode).json({
+    success: false,
+    message,
+    error: { code, details },
+    ...legacy
+  });
+}
+
+module.exports = { sendSuccess, sendError };
+
+-e \n==============================================================================\nFILE: ./src/models/Patient.js\n==============================================================================\n
+const { DataTypes } = require("sequelize");
+const { ROLES } = require("../constants/roles");
+
+module.exports = (sequelize) =>
+  sequelize.define(
+    "Patient",
+    {
+      id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+      name: { type: DataTypes.STRING, allowNull: false },
+      email: { type: DataTypes.STRING, allowNull: false, unique: true },
+      password: { type: DataTypes.STRING, allowNull: false },
+      role: {
+        type: DataTypes.ENUM(ROLES.PATIENT, ROLES.DOCTOR, ROLES.ADMIN),
+        allowNull: false,
+        defaultValue: ROLES.PATIENT,
+        validate: { isIn: [[ROLES.PATIENT]] }
+      },
+      gender: { type: DataTypes.STRING, allowNull: false },
+      dob: { type: DataTypes.DATEONLY, allowNull: false },
+      medical_history: { type: DataTypes.TEXT, allowNull: true }
+    },
+    { tableName: "Patients", timestamps: false }
+  );
+-e \n==============================================================================\nFILE: ./src/models/DiagnosisReport.js\n==============================================================================\n
+const { DataTypes } = require("sequelize");
+
+module.exports = (sequelize) =>
+  sequelize.define(
+    "DiagnosisReport",
+    {
+      id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+      patient_id: { type: DataTypes.INTEGER, allowNull: false },
+      doctor_id: { type: DataTypes.INTEGER, allowNull: false },
+      result_id: { type: DataTypes.INTEGER, allowNull: false },
+      doctor_notes: { type: DataTypes.TEXT, allowNull: true },
+      final_conclusion: { type: DataTypes.TEXT, allowNull: true },
+      created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
+    },
+    { tableName: "Diagnosis_Reports", timestamps: false }
+  );
+-e \n==============================================================================\nFILE: ./src/models/index.js\n==============================================================================\n
+const sequelize = require("../config/db");
+const DoctorFactory = require("./Doctor");
+const PatientFactory = require("./Patient");
+const XrayImageFactory = require("./XrayImage");
+const ResultImageFactory = require("./ResultImage");
+const DiagnosisReportFactory = require("./DiagnosisReport");
+
+const Doctor = DoctorFactory(sequelize);
+const Patient = PatientFactory(sequelize);
+const XrayImage = XrayImageFactory(sequelize);
+const ResultImage = ResultImageFactory(sequelize);
+const DiagnosisReport = DiagnosisReportFactory(sequelize);
+
+Patient.hasMany(XrayImage, { foreignKey: "patient_id" });
+Doctor.hasMany(XrayImage, { foreignKey: "doctor_id" });
+XrayImage.belongsTo(Patient, { foreignKey: "patient_id" });
+XrayImage.belongsTo(Doctor, { foreignKey: "doctor_id" });
+
+XrayImage.hasOne(ResultImage, { foreignKey: "xray_id" });
+ResultImage.belongsTo(XrayImage, { foreignKey: "xray_id" });
+
+Patient.hasMany(DiagnosisReport, { foreignKey: "patient_id" });
+Doctor.hasMany(DiagnosisReport, { foreignKey: "doctor_id" });
+ResultImage.hasMany(DiagnosisReport, { foreignKey: "result_id" });
+DiagnosisReport.belongsTo(Patient, { foreignKey: "patient_id" });
+DiagnosisReport.belongsTo(Doctor, { foreignKey: "doctor_id" });
+DiagnosisReport.belongsTo(ResultImage, { foreignKey: "result_id" });
+
+module.exports = {
+  sequelize,
+  Doctor,
+  Patient,
+  XrayImage,
+  ResultImage,
+  DiagnosisReport
+};
+-e \n==============================================================================\nFILE: ./src/models/Doctor.js\n==============================================================================\n
+const { DataTypes } = require("sequelize");
+const { ROLES } = require("../constants/roles");
+
+module.exports = (sequelize) =>
+  sequelize.define(
+    "Doctor",
+    {
+      id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+      name: { type: DataTypes.STRING, allowNull: false },
+      email: { type: DataTypes.STRING, allowNull: false, unique: true },
+      password: { type: DataTypes.STRING, allowNull: false },
+      role: {
+        type: DataTypes.ENUM(ROLES.PATIENT, ROLES.DOCTOR, ROLES.ADMIN),
+        allowNull: false,
+        defaultValue: ROLES.DOCTOR,
+        validate: { isIn: [[ROLES.DOCTOR, ROLES.ADMIN]] }
+      },
+      specialization: { type: DataTypes.STRING, allowNull: false },
+      medical_certificate: { type: DataTypes.STRING, allowNull: false }
+    },
+    { tableName: "Doctors", timestamps: false }
+  );
+-e \n==============================================================================\nFILE: ./src/models/ResultImage.js\n==============================================================================\n
+const { DataTypes } = require("sequelize");
+
+module.exports = (sequelize) =>
+  sequelize.define(
+    "ResultImage",
+    {
+      id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+      xray_id: { type: DataTypes.INTEGER, allowNull: false },
+      diagnosis_output: { type: DataTypes.JSONB, allowNull: false },
+      heatmap_path: { type: DataTypes.STRING, allowNull: true },
+      bounding_boxes: { type: DataTypes.JSONB, allowNull: true }
+    },
+    { tableName: "Result_Images", timestamps: false }
+  );
+-e \n==============================================================================\nFILE: ./src/models/XrayImage.js\n==============================================================================\n
+const { DataTypes } = require("sequelize");
+
+module.exports = (sequelize) =>
+  sequelize.define(
+    "XrayImage",
+    {
+      id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+      patient_id: { type: DataTypes.INTEGER, allowNull: false },
+      doctor_id: { type: DataTypes.INTEGER, allowNull: true },
+      image_path: { type: DataTypes.STRING, allowNull: false },
+      upload_date: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW }
+    },
+    { tableName: "Xray_Images", timestamps: false }
+  );
+-e \n==============================================================================\nFILE: ./src/controllers/historyController.js\n==============================================================================\n
+const { XrayImage, ResultImage, DiagnosisReport, Doctor, Patient } = require("../models");
+const { sendSuccess } = require("../utils/response");
+
+async function getPatientHistory(req, res, next) {
+  try {
+    const patientId = req.params.id;
+    const xrays = await XrayImage.findAll({
+      where: { patient_id: patientId },
+      include: [{ model: ResultImage }],
+      order: [["upload_date", "DESC"]]
+    });
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: "Patient history retrieved",
+      data: { patient_id: patientId, xrays },
+      legacy: { patient_id: patientId, xrays }
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function getDoctorHistory(req, res, next) {
+  try {
+    const doctorId = req.user.sub;
+    const reports = await DiagnosisReport.findAll({
+      where: { doctor_id: doctorId },
+      include: [Patient, Doctor, ResultImage],
+      order: [["created_at", "DESC"]]
+    });
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: "Doctor history retrieved",
+      data: { doctor_id: doctorId, reports },
+      legacy: { doctor_id: doctorId, reports }
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = { getPatientHistory, getDoctorHistory };
+-e \n==============================================================================\nFILE: ./src/controllers/xrayController.js\n==============================================================================\n
+const { XrayImage, ResultImage } = require("../models");
+const { analyzeXrayWithAI } = require("../services/aiService");
+const { ROLES } = require("../constants/roles");
+const { sendError, sendSuccess } = require("../utils/response");
+
+async function uploadXray(req, res, next) {
+  try {
+    if (!req.file) {
+      return sendError(res, { statusCode: 400, message: "X-ray file is required", code: "VALIDATION_ERROR" });
+    }
+    const { patient_id } = req.body;
+    const doctorId = req.user.role === ROLES.DOCTOR ? req.user.sub : null;
+    const effectivePatientId = req.user.role === ROLES.PATIENT ? req.user.sub : patient_id;
+
+    if (!effectivePatientId) {
+      return sendError(res, {
+        statusCode: 400,
+        message: "patient_id is required for doctor uploads",
+        code: "VALIDATION_ERROR"
+      });
+    }
+
+    const xray = await XrayImage.create({
+      patient_id: effectivePatientId,
+      doctor_id: doctorId,
+      image_path: req.file.path
+    });
+
+    return sendSuccess(res, {
+      statusCode: 201,
+      message: "Uploaded",
+      data: { xray },
+      legacy: { xray }
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function analyzeXray(req, res, next) {
+  try {
+    const xray = await XrayImage.findByPk(req.params.id);
+    if (!xray) {
+      return sendError(res, { statusCode: 404, message: "X-ray not found", code: "NOT_FOUND" });
+    }
+
+    const aiResult = await analyzeXrayWithAI({ imagePath: xray.image_path });
+    const result = await ResultImage.create({
+      xray_id: xray.id,
+      diagnosis_output: aiResult.diagnosis_output || {},
+      heatmap_path: aiResult.heatmap_path || null,
+      bounding_boxes: aiResult.bounding_boxes || []
+    });
+
+    const resultPayload = {
+      ...result.toJSON(),
+      original_image_url: xray.image_path
+    };
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: "Analysis complete",
+      data: { result: resultPayload },
+      legacy: { result: resultPayload }
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = { uploadXray, analyzeXray };
+-e \n==============================================================================\nFILE: ./src/controllers/authController.js\n==============================================================================\n
+const jwt = require("jsonwebtoken");
+const { authenticateUser, registerPatient } = require("../services/authService");
+const { ASSIGNABLE_SELF_REGISTRATION_ROLE } = require("../constants/roles");
+const { sendError, sendSuccess } = require("../utils/response");
+
+function signToken(userId, role) {
+  return jwt.sign({ sub: userId, role }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || "1d"
+  });
+}
+
+// Signup is patient only — no role needed from request
+async function signup(req, res, next) {
+  try {
+    const created = await registerPatient(req.body);
+    const token = signToken(created.id, created.role);
+    const user = { id: created.id, email: created.email, name: created.name };
+    return sendSuccess(res, {
+      statusCode: 201,
+      message: "Signup successful",
+      data: { token, role: ASSIGNABLE_SELF_REGISTRATION_ROLE, user },
+      legacy: { token, role: ASSIGNABLE_SELF_REGISTRATION_ROLE, user }
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function login(req, res, next) {
+  try {
+    const user = await authenticateUser(req.body);
+    if (!user) {
+      return sendError(res, { statusCode: 401, message: "Invalid credentials", code: "UNAUTHORIZED" });
+    }
+
+    const token = signToken(user.id, user.role);
+    const payload = { id: user.id, email: user.email, name: user.name };
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: "Login successful",
+      data: { token, role: user.role, user: payload },
+      legacy: { token, role: user.role, user: payload }
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = { signup, login };-e \n==============================================================================\nFILE: ./src/routes/historyRoutes.js\n==============================================================================\n
+const express = require("express");
+const authMiddleware = require("../middleware/authMiddleware");
+const { requireRole } = require("../middleware/roleMiddleware");
+const { ROLES } = require("../constants/roles");
+const { getPatientHistory, getDoctorHistory } = require("../controllers/historyController");
+
+const router = express.Router();
+
+router.get("/patient/:id", authMiddleware, getPatientHistory);
+router.get("/doctor", authMiddleware, requireRole(ROLES.DOCTOR), getDoctorHistory);
+
+module.exports = router;
+-e \n==============================================================================\nFILE: ./src/routes/authRoutes.js\n==============================================================================\n
+const express = require("express");
+const { validateBody, signupSchema, loginSchema } = require("../middleware/validate");
+const { signup, login } = require("../controllers/authController");
+
+const router = express.Router();
+
+router.post("/signup", validateBody(signupSchema), signup);
+router.post("/login", validateBody(loginSchema), login);
+
+module.exports = router;
+-e \n==============================================================================\nFILE: ./src/routes/xrayRoutes.js\n==============================================================================\n
+const express = require("express");
+const authMiddleware = require("../middleware/authMiddleware");
+const { requireRole } = require("../middleware/roleMiddleware");
+const { ROLES } = require("../constants/roles");
+const upload = require("../middleware/uploadMiddleware");
+const { validateParams, validateXrayUpload, analyzeIdSchema } = require("../middleware/validate");
+const { uploadXray, analyzeXray } = require("../controllers/xrayController");
+
+const router = express.Router();
+
+router.post("/upload", authMiddleware, upload.single("xray"), validateXrayUpload, uploadXray);
+router.post(
+  "/analyze/:id",
+  authMiddleware,
+  requireRole(ROLES.DOCTOR),
+  validateParams(analyzeIdSchema),
+  analyzeXray
+);
+
+module.exports = router;
+-e \n==============================================================================\nFILE: ./src/app.js\n==============================================================================\n
+const express = require("express");
+const cors = require("cors");
+const helmet = require("helmet");
+const path = require("path");
+
+const authRoutes = require("./routes/authRoutes");
+const xrayRoutes = require("./routes/xrayRoutes");
+const historyRoutes = require("./routes/historyRoutes");
+const errorMiddleware = require("./middleware/errorMiddleware");
+
+const app = express();
+
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN || "*",
+    credentials: process.env.CORS_ORIGIN ? true : false,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+  })
+);
+app.use(helmet());
+app.use(express.json({ limit: "2mb" }));
+app.use("/uploads", express.static(path.resolve(process.cwd(), process.env.UPLOAD_DIR || "uploads")));
+
+app.get("/", (_req, res) =>
+  res.status(200).json({
+    message: "Medical Imaging Backend API is running",
+    health: "/health"
+  })
+);
+app.get("/health", (_req, res) => res.json({ status: "ok" }));
+app.use("/auth", authRoutes);
+app.use("/api/xray", xrayRoutes);
+app.use("/api/history", historyRoutes);
+app.use(errorMiddleware);
+
+module.exports = app;
+-e \n==============================================================================\nFILE: ./src/services/aiService.js\n==============================================================================\n
+class AiServiceError extends Error {
+  constructor({ message, code, statusCode = 502, details = null }) {
+    super(message);
+    this.code = code;
+    this.statusCode = statusCode;
+    this.details = details;
+  }
+}
+
+function normalizeAiResponse(aiJson) {
+  // Keep the same domain shape the controller expects.
+  return {
+    diagnosis_output: aiJson?.diagnosis_output ?? aiJson?.diagnosisOutput ?? {},
+    heatmap_path: aiJson?.heatmap_path ?? aiJson?.heatmapPath ?? null,
+    bounding_boxes: aiJson?.bounding_boxes ?? aiJson?.boundingBoxes ?? []
+  };
+}
+
+async function requestAiAnalyze({ imagePath, signal }) {
+  let response;
+  try {
+    response = await fetch(`${process.env.AI_SERVICE_URL}/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image_path: imagePath }),
+      signal
+    });
+  } catch (err) {
+    // Aborted (timeout) errors are handled in analyzeXrayWithAI.
+    throw new AiServiceError({
+      message: "AI service network error",
+      code: "AI_NETWORK_ERROR",
+      details: err?.message || null
+    });
+  }
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new AiServiceError({
+      message: `AI service failed: ${response.status}`,
+      code: "AI_NON_2XX",
+      statusCode: 502,
+      details: { status: response.status, body: text }
+    });
+  }
+
+  try {
+    return await response.json();
+  } catch (err) {
+    throw new AiServiceError({
+      message: "AI service returned invalid JSON",
+      code: "AI_INVALID_RESPONSE",
+      statusCode: 502,
+      details: err?.message || null
+    });
+  }
+}
+
+async function analyzeXrayWithAI({ imagePath }) {
+  const controller = new AbortController();
+  const timeoutMs = Number(process.env.AI_SERVICE_TIMEOUT_MS || 10000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const aiJson = await requestAiAnalyze({ imagePath, signal: controller.signal });
+    return normalizeAiResponse(aiJson);
+  } catch (err) {
+    // Timeout / abort
+    if (err?.name === "AbortError") {
+      throw new AiServiceError({
+        message: "AI service timeout",
+        code: "AI_TIMEOUT",
+        statusCode: 504,
+        details: { timeoutMs }
+      });
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+module.exports = { analyzeXrayWithAI };
+-e \n==============================================================================\nFILE: ./src/services/authService.js\n==============================================================================\n
+const bcrypt = require("bcrypt");
+const { Doctor, Patient } = require("../models");
+const { ASSIGNABLE_SELF_REGISTRATION_ROLE, ROLES } = require("../constants/roles");
+
+async function registerPatient(input) {
+  const { password, ...payload } = input;
+  const hashedPassword = await bcrypt.hash(password, 12);
+
+  const existing = await Patient.findOne({ where: { email: payload.email } });
+  if (existing) {
+    const err = new Error("Email already in use");
+    err.statusCode = 409;
+    err.code = "CONFLICT";
+    throw err;
+  }
+
+  const created = await Patient.create({
+    ...payload,
+    password: hashedPassword,
+    role: ASSIGNABLE_SELF_REGISTRATION_ROLE
+  });
+
+  return {
+    id: created.id,
+    email: created.email,
+    name: created.name,
+    role: created.role
+  };
+}
+
+async function authenticateUser({ email, password }) {
+  let user = await Doctor.findOne({ where: { email } });
+  if (!user) {
+    user = await Patient.findOne({ where: { email } });
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  const passwordMatches = await bcrypt.compare(password, user.password);
+  if (!passwordMatches) {
+    return null;
+  }
+
+  const role = user.role || (user.specialization ? ROLES.DOCTOR : ROLES.PATIENT);
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role
+  };
+}
+
+module.exports = {
+  registerPatient,
+  authenticateUser
+};

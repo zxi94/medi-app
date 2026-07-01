@@ -1,0 +1,39 @@
+{
+  "navigation": {
+    "dashboard": "Dashboard",
+    "chats": "Care Chat",
+    "settings": "Settings"
+  },
+  "settings": {
+    "title": "Account Settings",
+    "language": "Language",
+    "english": "English 🇬🇧",
+    "arabic": "Arabic 🇸🇦",
+    "logout": "Sign Out"
+  },
+  "dashboard": {
+    "admin_panel": "MediScan AI Control Center",
+    "pending_doctors": "Pending Approvals",
+    "approve_btn": "Approve Account",
+    "no_pending": "No pending accounts awaiting verification."
+  },
+  "chat": {
+    "start_consultation": "Start New Patient Consultation",
+    "modal_title": "Initiate Secure Channel",
+    "phone_placeholder": "Patient Phone Number (e.g., +201...)",
+    "send_code": "Send Code via WhatsApp",
+    "waiting_verification": "Waiting for patient to verify the WhatsApp OTP code...",
+    "verify_title": "Doctor Connection Request",
+    "verify_body": "Your doctor has sent you a connection request. Enter the OTP you received on WhatsApp to confirm.",
+    "confirm_btn": "Confirm & Connect",
+    "invalid_otp": "Invalid verification code",
+    "otp_expired": "OTP expired or already used",
+    "no_contacts_doctor": "No patients connected yet. Tap 'Start New Patient Consultation' to begin.",
+    "no_contacts_patient": "No conversations yet. Waiting for a doctor to connect with you."
+  },
+  "otp": {
+    "sent": "Verification code sent",
+    "verified": "Phone number verified",
+    "delivery_failed": "WhatsApp delivery failed — check Evolution API config"
+  }
+}

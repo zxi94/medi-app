@@ -1,0 +1,50 @@
+Running `(cd /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/; TMPDIR=/var/folders/f0/75rq1gj95tq_dxxgm9h839qm0000gn/T/ PATH=/Applications/Xcode.app/Contents/SharedFrameworks/SwiftBuild.framework/Versions/A/PlugIns/SWBBuildService.bundle/Contents/PlugIns/SWBUniversalPlatformPlugin.bundle/Contents/Frameworks/SWBUniversalPlatform.framework/Resources:/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin:/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/local/bin:/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/libexec:/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/usr/bin:/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/usr/local/bin:/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/bin:/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/usr/local/bin:/Applications/Xcode.app/Contents/Developer/usr/bin:/Applications/Xcode.app/Contents/Developer/usr/local/bin:/Users/ziadmohammad/Library/Application Support/Code/User/globalStorage/github.copilot-chat/debugCommand:/Users/ziadmohammad/Library/Application Support/Code/User/globalStorage/github.copilot-chat/copilotCli:/Users/ziadmohammad/.rbenv/shims:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pmk/env/global/bin:/Library/Apple/usr/bin:/Users/ziadmohammad/.local/bin:/Users/ziadmohammad/go/bin:/Users/ziadmohammad/.vscode/extensions/ms-python.debugpy-2026.6.0-darwin-arm64/bundled/scripts/noConfigScripts HOME=/Users/ziadmohammad /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart --packages=/Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/package_config.json /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/objective_c/84fd4fa0ea/hook.dill --config=/Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/objective_c/84fd4fa0ea/input.json )`.
+INFO: 2026-06-20 05:18:54.879622: Running `/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang --version`.
+
+INFO: 2026-06-20 05:18:54.894139: Running `/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang --version`.
+
+INFO: 2026-06-20 05:18:54.908248: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios-simulator -mios-version-min=13 -c /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/src/objective_c.c -fpic -I src -o /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/objective_c.c.o
+
+art_api_dl.c.o
+
+INFO: 2026-06-20 05:18:54.908464: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios-simulator -mios-version-min=13 -x objective-c -fobjc-arc -c /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/src/objective_c.m -fpic -I src -o /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/objective_c.m.o
+INFO: 2026-06-20 05INFO: 2026-06-20 05:18:54.908630: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios-simulator -mios-version-min=13 -x objective-c -fobjc-arc -c /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/src/ns_number.m -fpic -I src -o /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/ns_number.m.o
+INFO: 2026-06-20 05:18:54.908714: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios-simulator -mios-version-min=13 -x objective-c -fobjc-arc -c /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/src/protocol.m -fpic -I src -o /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/protocol.m.o
+INFO: 2026-06-20 05:18:54.908798: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios-simulator -mios-version-min=13 -x objective-c -fobjc-arc -c /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/src/objective_c_bindings_generated.m -fpic -I src -o /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/objective_c_bindings_generated.m.o
+
+INFO: 2026-06-20 05:18:55.011352: 
+INFO: 2026-06-20 05:18:55.011433: 
+INFO: 2026-06-20 05:18:55.011459: Generated /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/include/dart_api_dl.c.o
+INFO: 2026-06-20 05:18:55.011526: 
+INFO: 2026-06-20 05:18:55.011538: 
+INFO: 2026-06-20 05:18:55.011546: Generated /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/objective_c.c.o
+
+INFO: 2026-06-20 05:18:55.016386: 
+INFO: 2026-06-20 05:18:55.016464: 
+INFO: 2026-06-20 05:18:55.016489: Generated /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/observer.m.o
+
+INFO: 2026-06-20 05:18:55.016823: 
+INFO: 2026-06-20 05:18:55.016856: 
+INFO: 2026-06-20 05:18:55.016866: Generated /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/protocol.m.o
+
+INFO: 2026-06-20 05:18:55.126596: 
+INFO: 2026-06-20 05:18:55.126607: 
+INFO: 2026-06-20 05:18:55.126615: Generated /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/ns_number.m.o
+
+
+
+INFO: 2026-06-20 05:18:55.138062: 
+INFO: 2026-06-20 05:18:55.138096: 
+INFO: 2026-06-20 05:18:55.138107: Generated /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/input_stream_adapter.m.o
+
+INFO: 2026-06-20 05:18:55.153135: 
+INFO: 2026-06-20 05:18:55.153170: 
+INFO: 2026-06-20 05:18:55.153179: Generated /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/objective_c_bindings_generated.m.o
+
+INFO: 2026-06-20 05:18:55.153584: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -shared -Wl,-encryptable -undefined dynamic_lookup -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator26.2.sdk -target arm64-apple-ios-simulator -mios-version-min=13 /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/include/dart_api_dl.c.o /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/objective_c.c.o /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/input_stream_adapter.m.o /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/objective_c.m.o /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/observer.m.o /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/ns_number.m.o /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/protocol.m.o /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/obj/src/objective_c_bindings_generated.m.o -o /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/objective_c.dylib
+
+INFO: 2026-06-20 05:18:55.180813: 
+INFO: 2026-06-20 05:18:55.180872: ld: warning: -undefined dynamic_lookup is deprecated on iOS-simulator
+
+INFO: 2026-06-20 05:18:55.180887: Generated /Users/ziadmohammad/Desktop/university/testtt/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/84fd4fa0ea/objective_c.dylib
+

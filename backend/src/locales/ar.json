@@ -1,0 +1,39 @@
+{
+  "navigation": {
+    "dashboard": "لوحة التحكم",
+    "chats": "محادثات الرعاية",
+    "settings": "الإعدادات"
+  },
+  "settings": {
+    "title": "إعدادات الحساب",
+    "language": "اللغة",
+    "english": "الإنجليزية 🇬🇧",
+    "arabic": "العربية 🇸🇦",
+    "logout": "تسجيل الخروج"
+  },
+  "dashboard": {
+    "admin_panel": "مركز تحكم MediScan AI",
+    "pending_doctors": "طلبات الموافقة المعلقة",
+    "approve_btn": "الموافقة على الحساب",
+    "no_pending": "لا توجد حسابات معلقة في انتظار التحقق."
+  },
+  "chat": {
+    "start_consultation": "بدء استشارة مريض جديد",
+    "modal_title": "بدء قناة اتصال آمنة",
+    "phone_placeholder": "رقم هاتف المريض (مثال: +201...)",
+    "send_code": "إرسال رمز عبر WhatsApp",
+    "waiting_verification": "في انتظار المريض للتحقق من رمز OTP مرسل عبر الواتساب...",
+    "verify_title": "طلب اتصال طبيب",
+    "verify_body": "أرسل طبيبك طلب اتصال بك. أدخل رمز OTP الذي تلقيته على WhatsApp للتأكيد.",
+    "confirm_btn": "تأكيد واتصال",
+    "invalid_otp": "رمز التحقق غير صحيح",
+    "otp_expired": "رمز التحقق منتهي الصلاحية أو مستخدم بالفعل",
+    "no_contacts_doctor": "لا يوجد مرضى متصلون بعد. اضغط على 'بدء استشارة مريض جديد' للبدء.",
+    "no_contacts_patient": "لا توجد محادثات بعد. في انتظار اتصال الطبيب."
+  },
+  "otp": {
+    "sent": "تم إرسال رمز التحقق",
+    "verified": "تم التحقق من رقم الهاتف",
+    "delivery_failed": "فشل تسليم واتساب - تحقق من إعداد Evolution API"
+  }
+}

@@ -1,0 +1,61 @@
+Running `(cd /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/; TMPDIR=/var/folders/f0/75rq1gj95tq_dxxgm9h839qm0000gn/T/ PATH=/Users/ziadmohammad/.gemini/antigravity/bin:/Users/ziadmohammad/Library/Application Support/Antigravity/bin:/Users/ziadmohammad/.rbenv/shims:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pmk/env/global/bin:/Library/Apple/usr/bin:/Users/ziadmohammad/.local/bin:/Users/ziadmohammad/go/bin:/Users/ziadmohammad/.local/bin HOME=/Users/ziadmohammad /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart --packages=/Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/package_config.json /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/objective_c/7ad245dadc/hook.dill --config=/Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/objective_c/7ad245dadc/input.json )`.
+INFO: 2026-06-18 14:51:45.188642: Running `/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang --version`.
+
+INFO: 2026-06-18 14:51:45.316154: Running `/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang --version`.
+
+INFO: 2026-06-18 14:51:45.330750: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -target arm64-apple-darwin -mmacos-version-min=13 -c /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/src/include/dart_api_dl.c -fpic -I src -o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/include/dart_api_dl.c.o
+
+INFO: 2026-06-18 14:51:45.331668: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -target arm64-apple-darwin -mmacos-version-min=13 -c /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/src/objective_c.c -fpic -I src -o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c.c.o
+
+INFO: 2026-06-18 14:51:45.332229: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -target arm64-apple-darwin -mmacos-version-min=13 -c /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/test/util.c -fpic -I src -o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/test/util.c.o
+
+INFO: 2026-06-18 14:51:45.332712: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -target arm64-apple-darwin -mmacos-version-min=13 -x objective-c -fobjc-arc -c /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/src/observer.m -fpic -I src -o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/observer.m.o
+INFO: 2026-06-18 14:51:45.332795: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -target arm64-apple-darwin -mmacos-version-min=13 -x objective-c -fobjc-arc -c /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/src/ns_number.m -fpic -I src -o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/ns_number.m.o
+
+dc/obj/src/objective_c.m.o
+
+INFO: 2026-06-18 14:51:45.332891: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -target arm64-apple-darwin -mmacos-version-min=13 -x objective-c -fobjc-arc -c /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/src/protocol.m -fpic -I src -o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/protocol.m.o
+
+INFO: 2026-06-18 14:51:45.333345: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -target arm64-apple-darwin -mmacos-version-min=13 -x objective-c -fobjc-arc -c /Users/ziadmohammad/.pub-cache/hosted/pub.dev/objective_c-9.3.0/src/objective_c_bindings_generated.m -fpic -I src -o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c_bindings_generated.m.o
+
+INFO: 2026-06-18 14:51:45.441405: 
+INFO: 2026-06-18 14:51:45.441540: 
+INFO: 2026-06-18 14:51:45.441591: Generated /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c.c.o
+INFO: 2026-06-18 14:51:45.441919: 
+INFO: 2026-06-18 14:51:45.441947: 
+INFO: 2026-06-18 14:51:45.441984: Generated /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/include/dart_api_dl.c.o
+
+INFO: 2026-06-18 14:51:45.452030: 
+INFO: 2026-06-18 14:51:45.452105: 
+INFO: 2026-06-18 14:51:45.452125: Generated /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/observer.m.o
+
+INFO: 2026-06-18 14:51:45.455067: 
+INFO: 2026-06-18 14:51:45.455107: 
+INFO: 2026-06-18 14:51:45.455118: Generated /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/protocol.m.o
+
+INFO: 2026-06-18 14:51:45.458459: 
+INFO: 2026-06-18 14:51:45.458504: 
+INFO: 2026-06-18 14:51:45.458527: Generated /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/test/util.c.o
+
+INFO: 2026-06-18 14:51:45.781487: 
+INFO: 2026-06-18 14:51:45.781553: 
+INFO: 2026-06-18 14:51:45.781641: Generated /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/ns_number.m.o
+
+INFO: 2026-06-18 14:51:45.793408: 
+INFO: 2026-06-18 14:51:45.793495: 
+INFO: 2026-06-18 14:51:45.793518: Generated /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c.m.o
+
+INFO: 2026-06-18 14:51:45.795561: 
+INFO: 2026-06-18 14:51:45.795735: 
+INFO: 2026-06-18 14:51:45.795756: Generated /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/input_stream_adapter.m.o
+
+INFO: 2026-06-18 14:51:45.815340: 
+INFO: 2026-06-18 14:51:45.815377: 
+INFO: 2026-06-18 14:51:45.815388: Generated /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c_bindings_generated.m.o
+
+OSX26.2.sdk -target arm64-apple-darwin -mmacos-version-min=13 /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/include/dart_api_dl.c.o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c.c.o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/test/util.c.o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/input_stream_adapter.m.o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c.m.o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/observer.m.o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/ns_number.m.o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/protocol.m.o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c_bindings_generated.m.o -o /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/objective_c.dylib
+
+INFO: 2026-06-18 14:51:45.956962: 
+INFO: 2026-06-18 14:51:45.957069: 
+INFO: 2026-06-18 14:51:45.957105: Generated /Users/ziadmohammad/Desktop/university/Graduation_Project/flutter/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/objective_c.dylib
+

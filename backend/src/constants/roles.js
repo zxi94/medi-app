@@ -1,0 +1,12 @@
+const ROLES = Object.freeze({
+  PATIENT: "PATIENT",
+  DOCTOR: "DOCTOR",
+  ADMIN: "ADMIN"
+});
+
+const ASSIGNABLE_SELF_REGISTRATION_ROLE = ROLES.PATIENT;
+
+module.exports = {
+  ROLES,
+  ASSIGNABLE_SELF_REGISTRATION_ROLE
+};
